@@ -30,5 +30,11 @@ rm -rf $RPM_BUILD_ROOT
 /usr/local/bin/showtime
 
 %changelog
+* Sat May 18 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-2
+- Improved clock aesthetics and digit alignment
+- Added SIGINT handler for clean exit on Ctrl+C
+- Refactored drawing functions for better modularity
+- Updated help and version options
+
 * Sat May 17 2025 T1antina  <xuanwonaturo@gmail.com> - 1.0.0-1
 - Initial release
