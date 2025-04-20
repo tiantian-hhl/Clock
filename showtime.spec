@@ -1,6 +1,6 @@
 Name:           showtime
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        ASCII Analog Clock for Terminal
 
 License:        MIT
