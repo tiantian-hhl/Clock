@@ -13,9 +13,26 @@
 
 volatile sig_atomic_t running = 1;
 
+void clear_screen() {
+    printf("\033[2J");    
+    printf("\033[H");    
+}
+
+void restore_terminal() {
+    printf("\033[?25h"); 
+    fflush(stdout);
+}
+
 void handle_interrupt(int sig) {
     running = 0;
-    printf("\nExiting showtime. Goodbye!\n");
+    clear_screen();
+    restore_terminal();
+    printf("Exiting showtime. Goodbye!\n");
+    fflush(stdout);
+}
+
+void move_cursor_top() {
+    printf("\033[H");
 }
 
 void plot(char screen[SIZE][SIZE], int x, int y, char c) {
@@ -85,16 +102,12 @@ void draw_center(char screen[SIZE][SIZE]) {
     plot(screen, CENTER_X, CENTER_Y, '+');
 }
 
-void clear_screen() {
-    printf("\033[H\033[J");
-}
-
 void print_screen(char screen[SIZE][SIZE]) {
     for (int y = 0; y < SIZE; y++) {
         for (int x = 0; x < SIZE; x++) {
-            printf("%c", screen[y][x]);
+            putchar(screen[y][x]);
         }
-        printf("\n");
+        putchar('\n');
     }
 }
 
@@ -111,7 +124,7 @@ void draw_clock() {
 
     for (int i = 1; i <= 12; ++i) {
         char buffer[3];
-        snprintf(buffer, sizeof(buffer), "%2d", i);  
+        snprintf(buffer, sizeof(buffer), "%2d", i);
         double angle = (i * 30.0 - 90.0) * M_PI / 180.0;
         draw_tick(screen, buffer, angle, RADIUS - 2);
     }
@@ -124,21 +137,23 @@ void draw_clock() {
     min_angle -= M_PI / 2;
     sec_angle -= M_PI / 2;
 
-    draw_hand(screen, hour_angle, RADIUS * 0.4, 'O');
-    draw_hand(screen, min_angle, RADIUS * 0.6, 'o');
-    draw_hand(screen, sec_angle, RADIUS * 0.8, '.');
+    draw_hand(screen, hour_angle, (int)(RADIUS * 0.4), 'H');
+    draw_hand(screen, min_angle, (int)(RADIUS * 0.6), '*');
+    draw_hand(screen, sec_angle, (int)(RADIUS * 0.8), '.');
 
     draw_center(screen);
 
-    clear_screen();
+    move_cursor_top();
     print_screen(screen);
 
     char buffer[128];
     strftime(buffer, sizeof(buffer), "%a %b %d %H:%M:%S %Z %Y", time_info);
     printf("%s\n", buffer);
+    fflush(stdout);
 }
 
 int main(int argc, char* argv[]) {
+
     if (argc > 1) {
         if (strcmp(argv[1], "--help") == 0) {
             printf("Usage: showtime\n");
@@ -152,10 +167,20 @@ int main(int argc, char* argv[]) {
 
     signal(SIGINT, handle_interrupt);
 
+    clear_screen();
+    printf("\033[?25l");  
+    fflush(stdout);
+
     while (running) {
         draw_clock();
-        usleep(1000000);
+        sleep(1);
     }
+
+    clear_screen();
+    restore_terminal();
+
+    printf("Exiting showtime. Goodbye!\n");
+    fflush(stdout);
 
     return 0;
 }

@@ -30,7 +30,12 @@ rm -rf $RPM_BUILD_ROOT
 /usr/local/bin/showtime
 
 %changelog
-* Sat May 18 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-2
+* Mon May 19 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-3
+- Improve terminal cleanup on exit to avoid screen clutter
+- Handle Ctrl+C (SIGINT) more gracefully by restoring cursor and clearing screen
+- Refactor output flow to avoid overlapping with RPM install output
+
+* Sun May 18 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-2
 - Improved clock aesthetics and digit alignment
 - Added SIGINT handler for clean exit on Ctrl+C
 - Refactored drawing functions for better modularity
