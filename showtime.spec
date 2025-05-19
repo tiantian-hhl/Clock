@@ -1,6 +1,6 @@
 Name:           showtime
 Version:        1.0.0
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        ASCII Analog Clock for Terminal
 
 License:        MIT
@@ -30,6 +30,10 @@ rm -rf $RPM_BUILD_ROOT
 /usr/local/bin/showtime
 
 %changelog
+
+* Mon May 19 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-4
+-draw: use color to distinguish hands
+
 * Mon May 19 2025 T1antian <xuanwonaturo@gmail.com> - 1.0-3
 - Improve terminal cleanup on exit to avoid screen clutter
 - Handle Ctrl+C (SIGINT) more gracefully by restoring cursor and clearing screen

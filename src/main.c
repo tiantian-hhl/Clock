@@ -11,61 +11,50 @@
 #define CENTER_Y (SIZE / 2)
 #define RADIUS (SIZE / 2 - 1)
 
+#define COLOR_RESET   "\033[0m"
+#define COLOR_HOUR    "\033[34m"  // Blue
+#define COLOR_MIN     "\033[32m"  // Green
+#define COLOR_SEC     "\033[31m"  // Red
+
 volatile sig_atomic_t running = 1;
-
-void clear_screen() {
-    printf("\033[2J");    
-    printf("\033[H");    
-}
-
-void restore_terminal() {
-    printf("\033[?25h"); 
-    fflush(stdout);
-}
 
 void handle_interrupt(int sig) {
     running = 0;
-    clear_screen();
-    restore_terminal();
-    printf("Exiting showtime. Goodbye!\n");
-    fflush(stdout);
 }
 
 void move_cursor_top() {
-    printf("\033[H");
+    printf("\033[2J\033[H"); // clear screen and move cursor to top
 }
 
-void plot(char screen[SIZE][SIZE], int x, int y, char c) {
+void plot(char screen[SIZE][SIZE][16], int x, int y, const char* color, char c) {
     if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
-        screen[y][x] = c;
+        snprintf(screen[y][x], 16, "%s%c%s", color, c, COLOR_RESET);
     }
 }
 
-void draw_circle(char screen[SIZE][SIZE], int cx, int cy, int r, char c) {
+void draw_circle(char screen[SIZE][SIZE][16], int cx, int cy, int r, char c) {
     int x = 0, y = r;
     int d = 3 - 2 * r;
-
     while (x <= y) {
-        plot(screen, cx + x, cy + y, c);
-        plot(screen, cx + y, cy + x, c);
-        plot(screen, cx - x, cy + y, c);
-        plot(screen, cx - y, cy + x, c);
-        plot(screen, cx + x, cy - y, c);
-        plot(screen, cx + y, cy - x, c);
-        plot(screen, cx - x, cy - y, c);
-        plot(screen, cx - y, cy - x, c);
-
+        plot(screen, cx + x, cy + y, COLOR_RESET, c);
+        plot(screen, cx + y, cy + x, COLOR_RESET, c);
+        plot(screen, cx - x, cy + y, COLOR_RESET, c);
+        plot(screen, cx - y, cy + x, COLOR_RESET, c);
+        plot(screen, cx + x, cy - y, COLOR_RESET, c);
+        plot(screen, cx + y, cy - x, COLOR_RESET, c);
+        plot(screen, cx - x, cy - y, COLOR_RESET, c);
+        plot(screen, cx - y, cy - x, COLOR_RESET, c);
         if (d < 0) {
-            d = d + 4 * x + 6;
+            d += 4 * x + 6;
         } else {
-            d = d + 4 * (x - y) + 10;
+            d += 4 * (x - y) + 10;
             y--;
         }
         x++;
     }
 }
 
-void draw_line(char screen[SIZE][SIZE], int x0, int y0, int x1, int y1, char c) {
+void draw_line(char screen[SIZE][SIZE][16], int x0, int y0, int x1, int y1, const char* color, char c) {
     int dx = abs(x1 - x0), dy = -abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1;
     int sy = y0 < y1 ? 1 : -1;
@@ -73,7 +62,7 @@ void draw_line(char screen[SIZE][SIZE], int x0, int y0, int x1, int y1, char c) 
 
     for (;;) {
         if (x0 != CENTER_X || y0 != CENTER_Y) {
-            plot(screen, x0, y0, c);
+            plot(screen, x0, y0, color, c);
         }
         if (x0 == x1 && y0 == y1) break;
         e2 = 2 * err;
@@ -82,30 +71,30 @@ void draw_line(char screen[SIZE][SIZE], int x0, int y0, int x1, int y1, char c) 
     }
 }
 
-void draw_hand(char screen[SIZE][SIZE], double angle, int length, char c) {
+void draw_hand(char screen[SIZE][SIZE][16], double angle, int length, const char* color, char c) {
     int x = (int)(length * cos(angle));
     int y = (int)(length * sin(angle));
-    draw_line(screen, CENTER_X, CENTER_Y, CENTER_X + x, CENTER_Y + y, c);
+    draw_line(screen, CENTER_X, CENTER_Y, CENTER_X + x, CENTER_Y + y, color, c);
 }
 
-void draw_tick(char screen[SIZE][SIZE], const char* tick_label, double angle, int radius) {
+void draw_tick(char screen[SIZE][SIZE][16], const char* tick_label, double angle, int radius) {
     int label_length = strlen(tick_label);
     int x = (int)(radius * cos(angle)) + CENTER_X - label_length / 2;
     int y = (int)(radius * sin(angle)) + CENTER_Y;
 
     for (int i = 0; i < label_length; ++i) {
-        plot(screen, x + i, y, tick_label[i]);
+        plot(screen, x + i, y, COLOR_RESET, tick_label[i]);
     }
 }
 
-void draw_center(char screen[SIZE][SIZE]) {
-    plot(screen, CENTER_X, CENTER_Y, '+');
+void draw_center(char screen[SIZE][SIZE][16]) {
+    plot(screen, CENTER_X, CENTER_Y, COLOR_RESET, '+');
 }
 
-void print_screen(char screen[SIZE][SIZE]) {
+void print_screen(char screen[SIZE][SIZE][16]) {
     for (int y = 0; y < SIZE; y++) {
         for (int x = 0; x < SIZE; x++) {
-            putchar(screen[y][x]);
+            printf("%s", screen[y][x]);
         }
         putchar('\n');
     }
@@ -117,8 +106,10 @@ void draw_clock() {
     time(&raw_time);
     time_info = localtime(&raw_time);
 
-    char screen[SIZE][SIZE];
-    memset(screen, ' ', sizeof(screen));
+    char screen[SIZE][SIZE][16];
+    for (int y = 0; y < SIZE; ++y)
+        for (int x = 0; x < SIZE; ++x)
+            snprintf(screen[y][x], 16, " ");
 
     draw_circle(screen, CENTER_X, CENTER_Y, RADIUS, '@');
 
@@ -137,9 +128,9 @@ void draw_clock() {
     min_angle -= M_PI / 2;
     sec_angle -= M_PI / 2;
 
-    draw_hand(screen, hour_angle, (int)(RADIUS * 0.4), 'H');
-    draw_hand(screen, min_angle, (int)(RADIUS * 0.6), '*');
-    draw_hand(screen, sec_angle, (int)(RADIUS * 0.8), '.');
+    draw_hand(screen, hour_angle, (int)(RADIUS * 0.4), COLOR_HOUR, 'O');
+    draw_hand(screen, min_angle, (int)(RADIUS * 0.6), COLOR_MIN, 'o');
+    draw_hand(screen, sec_angle, (int)(RADIUS * 0.8), COLOR_SEC, '.');
 
     draw_center(screen);
 
@@ -167,8 +158,7 @@ int main(int argc, char* argv[]) {
 
     signal(SIGINT, handle_interrupt);
 
-    clear_screen();
-    printf("\033[?25l");  
+    printf("\033[?25l"); // hide cursor
     fflush(stdout);
 
     while (running) {
@@ -176,9 +166,8 @@ int main(int argc, char* argv[]) {
         sleep(1);
     }
 
-    clear_screen();
-    restore_terminal();
-
+    printf("\033[?25h"); // show cursor
+    printf("\033[%d;0H", SIZE + 2);
     printf("Exiting showtime. Goodbye!\n");
     fflush(stdout);
 

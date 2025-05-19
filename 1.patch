@@ -1,0 +1,180 @@
+--- main.c.orig	2025-05-18 09:00:00.000000000 +0800
++++ main.c	2025-05-18 09:10:00.000000000 +0800
+@@ -21,6 +21,17 @@
+ #define RADIUS (SIZE / 2 - 1)
+
+ volatile sig_atomic_t running = 1;
+
++// ANSI color codes
++#define COLOR_RESET    "\033[0m"
++#define COLOR_RED      "\033[31m"
++#define COLOR_GREEN    "\033[32m"
++#define COLOR_YELLOW   "\033[33m"
++#define COLOR_BLUE     "\033[34m"
++#define COLOR_CYAN     "\033[36m"
++
++typedef struct {
++    char ch;
++    const char* color;
++} Pixel;
+
+ static void handle_interrupt(int sig) {
+     running = 0;
+@@ -28,10 +39,12 @@
+ void move_cursor_top() {
+     printf("\033[H");
+ }
+
+-void plot(char screen[SIZE][SIZE], int x, int y, char c) {
++void plot(Pixel screen[SIZE][SIZE], int x, int y, char c, const char* color) {
+     if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
+-        screen[y][x] = c;
++        screen[y][x].ch = c;
++        screen[y][x].color = color;
+     }
+ }
+
+-void draw_circle(char screen[SIZE][SIZE], int cx, int cy, int r, char c) {
++void draw_circle(Pixel screen[SIZE][SIZE], int cx, int cy, int r, char c, const char* color) {
+     int x = 0, y = r;
+     int d = 3 - 2 * r;
+
+     while (x <= y) {
+-        plot(screen, cx + x, cy + y, c);
+-        plot(screen, cx + y, cy + x, c);
+-        plot(screen, cx - x, cy + y, c);
+-        plot(screen, cx - y, cy + x, c);
+-        plot(screen, cx + x, cy - y, c);
+-        plot(screen, cx + y, cy - x, c);
+-        plot(screen, cx - x, cy - y, c);
+-        plot(screen, cx - y, cy - x, c);
++        plot(screen, cx + x, cy + y, c, color);
++        plot(screen, cx + y, cy + x, c, color);
++        plot(screen, cx - x, cy + y, c, color);
++        plot(screen, cx - y, cy + x, c, color);
++        plot(screen, cx + x, cy - y, c, color);
++        plot(screen, cx + y, cy - x, c, color);
++        plot(screen, cx - x, cy - y, c, color);
++        plot(screen, cx - y, cy - x, c, color);
+
+         if (d < 0) {
+             d = d + 4 * x + 6;
+         } else {
+             d = d + 4 * (x - y) + 10;
+             y--;
+         }
+         x++;
+     }
+ }
+
+-void draw_line(char screen[SIZE][SIZE], int x0, int y0, int x1, int y1, char c) {
++void draw_line(Pixel screen[SIZE][SIZE], int x0, int y0, int x1, int y1, char c, const char* color, int thickness) {
+     int dx = abs(x1 - x0), dy = -abs(y1 - y0);
+     int sx = x0 < x1 ? 1 : -1;
+     int sy = y0 < y1 ? 1 : -1;
+     int err = dx + dy, e2;
+
+     for (;;) {
+-        if (x0 != CENTER_X || y0 != CENTER_Y) {
+-            plot(screen, x0, y0, c);
++        for (int tx = -thickness; tx <= thickness; ++tx) {
++            for (int ty = -thickness; ty <= thickness; ++ty) {
++                if (x0 + tx != CENTER_X || y0 + ty != CENTER_Y)
++                    plot(screen, x0 + tx, y0 + ty, c, color);
++            }
+         }
+         if (x0 == x1 && y0 == y1) break;
+         e2 = 2 * err;
+         if (e2 >= dy) { err += dy; x0 += sx; }
+         if (e2 <= dx) { err += dx; y0 += sy; }
+     }
+ }
+
+-void draw_hand(char screen[SIZE][SIZE], double angle, int length, char c) {
++void draw_hand(Pixel screen[SIZE][SIZE], double angle, int length, char c, const char* color, int thickness) {
+     int x = (int)(length * cos(angle));
+     int y = (int)(length * sin(angle));
+-    draw_line(screen, CENTER_X, CENTER_Y, CENTER_X + x, CENTER_Y + y, c);
++    draw_line(screen, CENTER_X, CENTER_Y, CENTER_X + x, CENTER_Y + y, c, color, thickness);
+ }
+
+-void draw_tick(char screen[SIZE][SIZE], const char* tick_label, double angle, int radius) {
++void draw_tick(Pixel screen[SIZE][SIZE], const char* tick_label, double angle, int radius) {
+     int label_length = strlen(tick_label);
+     int x = (int)(radius * cos(angle)) + CENTER_X - label_length / 2;
+     int y = (int)(radius * sin(angle)) + CENTER_Y;
+
+     for (int i = 0; i < label_length; ++i) {
+-        plot(screen, x + i, y, tick_label[i]);
++        plot(screen, x + i, y, tick_label[i], COLOR_YELLOW);
+     }
+ }
+
+-void draw_center(char screen[SIZE][SIZE]) {
+-    plot(screen, CENTER_X, CENTER_Y, '+');
++void draw_center(Pixel screen[SIZE][SIZE]) {
++    plot(screen, CENTER_X, CENTER_Y, '+', COLOR_RESET);
+ }
+
+-void print_screen(char screen[SIZE][SIZE]) {
++void print_screen(Pixel screen[SIZE][SIZE]) {
+     for (int y = 0; y < SIZE; y++) {
+         for (int x = 0; x < SIZE; x++) {
+-            putchar(screen[y][x]);
++            const char* color = screen[y][x].color ? screen[y][x].color : COLOR_RESET;
++            printf("%s%c", color, screen[y][x].ch);
+         }
+-        putchar('\n');
++        printf(COLOR_RESET "\n");
+     }
+ }
+
+ void draw_clock() {
+     time_t raw_time;
+     struct tm* time_info;
+     time(&raw_time);
+     time_info = localtime(&raw_time);
+
+-    char screen[SIZE][SIZE];
+-    memset(screen, ' ', sizeof(screen));
++    Pixel screen[SIZE][SIZE];
++    for (int y = 0; y < SIZE; ++y)
++        for (int x = 0; x < SIZE; ++x)
++            screen[y][x] = (Pixel){' ', COLOR_RESET};
+
+-    draw_circle(screen, CENTER_X, CENTER_Y, RADIUS, '@');
++    draw_circle(screen, CENTER_X, CENTER_Y, RADIUS, '@', COLOR_CYAN);
+
+     for (int i = 1; i <= 12; ++i) {
+         char buffer[3];
+         snprintf(buffer, sizeof(buffer), "%2d", i);
+         double angle = (i * 30.0 - 90.0) * M_PI / 180.0;
+         draw_tick(screen, buffer, angle, RADIUS - 2);
+     }
+
+     double hour_angle = ((time_info->tm_hour % 12) * 30.0 + time_info->tm_min * 0.5) * M_PI / 180.0;
+     double min_angle = (time_info->tm_min * 6.0) * M_PI / 180.0;
+     double sec_angle = (time_info->tm_sec * 6.0) * M_PI / 180.0;
+
+     hour_angle -= M_PI / 2;
+     min_angle -= M_PI / 2;
+     sec_angle -= M_PI / 2;
+
+-    draw_hand(screen, hour_angle, (int)(RADIUS * 0.4), 'O');
+-    draw_hand(screen, min_angle, (int)(RADIUS * 0.6), 'o');
+-    draw_hand(screen, sec_angle, (int)(RADIUS * 0.8), '.');
++    draw_hand(screen, hour_angle, (int)(RADIUS * 0.4), '#', COLOR_RED, 1);
++    draw_hand(screen, min_angle, (int)(RADIUS * 0.6), '*', COLOR_GREEN, 0);
++    draw_hand(screen, sec_angle, (int)(RADIUS * 0.8), '.', COLOR_RESET, 0);
+
+     draw_center(screen);
+
+     move_cursor_top();
+     print_screen(screen);
+
+     char buffer[128];
+     strftime(buffer, sizeof(buffer), "%a %b %d %H:%M:%S %Z %Y", time_info);
+     printf("%s\n", buffer);
+     fflush(stdout);
+ }
+
