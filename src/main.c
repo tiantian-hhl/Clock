@@ -4,6 +4,9 @@
 #include <signal.h>
 #include <unistd.h>
 #include <math.h>
+
+
+ssadsdaffewg
 #include <time.h>
 
 #define SIZE 39
